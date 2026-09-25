@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zomra — لوحة التحكم</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  display: flex; min-height: 100vh; background: #f5f5f7;
+}
+.hidden{display:none !important;}
+
+/* ---------- شاشة دخول الأدمين ---------- */
+#loginScreen{
+  width:100%;min-height:100vh;display:flex;align-items:center;justify-content:center;
+  background:#1c1c1e;
+}
+.loginBox{
+  background:white;padding:36px 32px;border-radius:16px;max-width:340px;width:90%;
+  box-shadow:0 10px 40px rgba(0,0,0,.3);
+}
+.loginBox h2{font-size:22px;margin-bottom:4px;color:#1c1c1e;}
+.loginBox p.tag{color:#888;font-size:13px;margin-bottom:20px;}
+.field{margin-bottom:14px;}
+.field label{display:block;font-size:12px;color:#888;margin-bottom:6px;}
+.field input{
+  width:100%;padding:11px;border-radius:8px;border:1px solid #ddd;font-size:14px;
+}
+.field input:focus{outline:none;border-color:#5865f2;}
+.btn{
+  width:100%;padding:12px;border-radius:8px;border:none;background:#5865f2;
+  color:white;font-size:14px;font-weight:600;cursor:pointer;margin-top:6px;
+}
+#loginError{color:#FF3B30;font-size:13px;margin-bottom:10px;min-height:16px;}
+
+/* ---------- الهيكل الرئيسي ---------- */
+aside {
+  width: 220px; background: #1c1c1e; color: white; padding: 28px 16px;
+  position:sticky;top:0;height:100vh;flex-shrink:0;
+}
+aside h2 { font-size: 20px; margin-bottom: 24px; padding: 0 12px; color:#5865f2; }
+aside nav { display: flex; flex-direction: column; gap: 4px; }
+aside button {
+  color: #bbb; text-decoration: none; padding: 10px 12px; width:100%;text-align:right;
+  border-radius: 8px; font-size: 14px; background:none;border:none;cursor:pointer;font-family:inherit;
+}
+aside button:hover { background: #2c2c2e; color: white; }
+aside button.active { background: #5865f2; color: white; }
+aside .logoutBtn{margin-top:24px;color:#FF3B30;}
+
+main { flex: 1; padding: 32px; overflow-y: auto; }
+main header { margin-bottom: 28px; display:flex;justify-content:space-between;align-items:center; }
+main h1 { font-size: 28px; margin-bottom: 4px; color:#1c1c1e; }
+main header p { color: #666; }
+
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; margin-bottom: 28px; }
+.stat {
+  background: white; padding: 20px; border-radius: 14px;
+  display: flex; flex-direction: column; gap: 4px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.04);
+}
+.label { color: #888; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+.value { font-size: 26px; font-weight: 600; color:#1c1c1e; }
+
+.panel {
+  background: white; padding: 24px; border-radius: 14px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.04); margin-bottom:20px;
+}
+.panel h3 { font-size: 16px; margin-bottom: 14px; color:#1c1c1e; }
+.panel ul { list-style: none; }
+.panel li {
+  padding: 12px 0; border-bottom: 1px solid #eee; font-size: 14px; color: #444;
+  display:flex;justify-content:space-between;align-items:center;gap:10px;
+}
+.panel li:last-child { border-bottom: none; }
+.li-info{flex:1;min-width:0;}
+.li-info .main{font-weight:600;color:#1c1c1e;}
+.li-info .sub{color:#888;font-size:12px;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.delBtn{
+  background:#FF3B30;border:none;color:white;border-radius:6px;
+  padding:6px 14px;font-size:12px;cursor:pointer;flex-shrink:0;
+}
+.emptyMsg{color:#999;text-align:center;padding:20px;font-size:14px;}
+.tabPanel{display:none;}
+.tabPanel.active{display:block;}
+</style>
+</head>
+<body>
+
+<!-- ---------- دخول الأدمين ---------- -->
+<div id="loginScreen">
+  <div class="loginBox">
+    <h2>لوحة تحكم Zomra</h2>
+    <p class="tag">دخول مخصص للأدمين فقط</p>
+    <div id="loginError"></div>
+    <div class="field"><label>الإيميل</label><input type="email" id="loginEmail"></div>
+    <div class="field"><label>الباسورد</label><input type="password" id="loginPass"></div>
+    <button class="btn" onclick="adminLogin()">دخول</button>
+  </div>
+</div>
+
+<!-- ---------- لوحة التحكم ---------- -->
+<aside id="sidebar" class="hidden">
+  <h2>Zomra Admin</h2>
+  <nav>
+    <button class="active" data-tab="overview" onclick="switchAdminTab('overview')">نظرة عامة</button>
+    <button data-tab="users" onclick="switchAdminTab('users')">المستخدمين</button>
+    <button data-tab="posts" onclick="switchAdminTab('posts')">المنشورات</button>
+    <button data-tab="library" onclick="switchAdminTab('library')">الملخصات</button>
+    <button data-tab="reels" onclick="switchAdminTab('reels')">الريلز</button>
+    <button data-tab="questions" onclick="switchAdminTab('questions')">الأسئلة</button>
+  </nav>
+  <button class="logoutBtn" onclick="adminLogout()">خروج</button>
+</aside>
+
+<main id="mainContent" class="hidden">
+  <header>
+    <div>
+      <h1 id="pageTitle">نظرة عامة</h1>
+      <p>أهلاً بيك في لوحة تحكم Zomra</p>
+    </div>
+  </header>
+
+  <div class="stats">
+    <div class="stat"><span class="label">المستخدمين</span><span class="value" id="statUsers">0</span></div>
+    <div class="stat"><span class="label">المنشورات</span><span class="value" id="statPosts">0</span></div>
+    <div class="stat"><span class="label">التعليقات</span><span class="value" id="statComments">0</span></div>
+    <div class="stat"><span class="label">الرسائل</span><span class="value" id="statMessages">0</span></div>
+    <div class="stat"><span class="label">الملخصات</span><span class="value" id="statLibrary">0</span></div>
+    <div class="stat"><span class="label">الريلز</span><span class="value" id="statReels">0</span></div>
+  </div>
+
+  <div class="tabPanel active" id="tab-overview">
+    <section class="panel">
+      <h3>أحدث المستخدمين</h3>
+      <ul id="recentUsersList"></ul>
+    </section>
+    <section class="panel">
+      <h3>أحدث المنشورات</h3>
+      <ul id="recentPostsList"></ul>
+    </section>
+  </div>
+
+  <div class="tabPanel" id="tab-users">
+    <section class="panel">
+      <h3>كل المستخدمين</h3>
+      <ul id="usersList"></ul>
+    </section>
+  </div>
+
+  <div class="tabPanel" id="tab-posts">
+    <section class="panel">
+      <h3>كل المنشورات</h3>
+      <ul id="postsList"></ul>
+    </section>
+  </div>
+
+  <div class="tabPanel" id="tab-library">
+    <section class="panel">
+      <h3>كل الملخصات</h3>
+      <ul id="libraryList"></ul>
+    </section>
+  </div>
+
+  <div class="tabPanel" id="tab-reels">
+    <section class="panel">
+      <h3>كل الريلز</h3>
+      <ul id="reelsList"></ul>
+    </section>
+  </div>
+
+  <div class="tabPanel" id="tab-questions">
+    <section class="panel">
+      <h3>كل الأسئلة</h3>
+      <ul id="questionsList"></ul>
+    </section>
+  </div>
+</main>
+
+<script>
+const SUPABASE_URL = "https://kslhcxgfifjfuhxaxvws.supabase.co";
+const SUPABASE_KEY = "sb_publishable_HRpnAdrYRHk7xO8mvY9zEA_TDJQuZjW";
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const ADMIN_EMAIL = "hamzaworks766@gmail.com";
+
+function escapeHtml(str){
+  const d = document.createElement('div');
+  d.textContent = str || '';
+  return d.innerHTML;
+}
+
+/* ---------- دخول / خروج ---------- */
+async function adminLogin(){
+  const email = document.getElementById('loginEmail').value.trim();
+  const pass = document.getElementById('loginPass').value;
+  const errBox = document.getElementById('loginError');
+  errBox.textContent = '';
+
+  if(email !== ADMIN_EMAIL){
+    errBox.textContent = 'الصفحة دي مخصصة للأدمين بس';
+    return;
+  }
+  const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
+  if(error){ errBox.textContent = 'الإيميل أو الباسورد غلط'; return; }
+  showDashboard();
+}
+async function adminLogout(){
+  await sb.auth.signOut();
+  document.getElementById('sidebar').classList.add('hidden');
+  document.getElementById('mainContent').classList.add('hidden');
+  document.getElementById('loginScreen').classList.remove('hidden');
+}
+function showDashboard(){
+  document.getElementById('loginScreen').classList.add('hidden');
+  document.getElementById('sidebar').classList.remove('hidden');
+  document.getElementById('mainContent').classList.remove('hidden');
+  loadStats();
+  loadOverview();
+  loadUsers();
+  loadPosts();
+  loadLibrary();
+  loadReels();
+  loadQuestions();
+}
+
+/* ---------- التنقل بين التابات ---------- */
+const tabTitles = {
+  overview: 'نظرة عامة', users: 'المستخدمين', posts: 'المنشورات',
+  library: 'الملخصات', reels: 'الريلز', questions: 'الأسئلة'
+};
+function switchAdminTab(name){
+  document.querySelectorAll('aside nav button').forEach(b=>b.classList.remove('active'));
+  document.querySelector(`aside nav button[data-tab="${name}"]`).classList.add('active');
+  document.querySelectorAll('.tabPanel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  document.getElementById('pageTitle').textContent = tabTitles[name];
+}
+
+/* ---------- الإحصائيات ---------- */
+async function loadStats(){
+  const { count: usersCount } = await sb.from('profiles').select('*', { count: 'exact', head: true });
+  const { count: postsCount } = await sb.from('posts').select('*', { count: 'exact', head: true });
+  const { count: commentsCount } = await sb.from('comments').select('*', { count: 'exact', head: true });
+  const { count: messagesCount } = await sb.from('messages').select('*', { count: 'exact', head: true });
+  const { count: libraryCount } = await sb.from('library_posts').select('*', { count: 'exact', head: true });
+  const { count: reelsCount } = await sb.from('reels').select('*', { count: 'exact', head: true });
+
+  document.getElementById('statUsers').textContent = usersCount || 0;
+  document.getElementById('statPosts').textContent = postsCount || 0;
+  document.getElementById('statComments').textContent = commentsCount || 0;
+  document.getElementById('statMessages').textContent = messagesCount || 0;
+  document.getElementById('statLibrary').textContent = libraryCount || 0;
+  document.getElementById('statReels').textContent = reelsCount || 0;
+}
+
+/* ---------- نظرة عامة ---------- */
+async function loadOverview(){
+  const { data: users } = await sb.from('profiles').select('*').order('created_at',{ascending:false}).limit(5);
+  document.getElementById('recentUsersList').innerHTML = (users||[]).map(u => `
+    <li><div class="li-info"><div class="main">${escapeHtml(u.username)}</div><div class="sub">${u.id}</div></div></li>
+  `).join('') || '<div class="emptyMsg">مفيش مستخدمين لسه</div>';
+
+  const { data: posts } = await sb.from('posts').select('*, profiles(username)').order('created_at',{ascending:false}).limit(5);
+  document.getElementById('recentPostsList').innerHTML = (posts||[]).map(p => `
+    <li><div class="li-info"><div class="main">${escapeHtml(p.profiles?.username || 'مستخدم محذوف')}</div><div class="sub">${escapeHtml(p.content || '(صورة بدون نص)')}</div></div></li>
+  `).join('') || '<div class="emptyMsg">مفيش منشورات لسه</div>';
+}
+
+/* ---------- المستخدمين ---------- */
+async function loadUsers(){
+  const { data: users } = await sb.from('profiles').select('*').order('created_at', { ascending: false });
+  document.getElementById('usersList').innerHTML = (users||[]).map(u => `
+    <li>
+      <div class="li-info"><div class="main">${escapeHtml(u.username)}</div><div class="sub">${u.id} · ${u.points||0} نقطة</div></div>
+      <button class="delBtn" onclick="deleteUser('${u.id}')">حذف</button>
+    </li>
+  `).join('') || '<div class="emptyMsg">مفيش مستخدمين لسه</div>';
+}
+async function deleteUser(userId){
+  if(!confirm('متأكد إنك عايز تحذف المستخدم ده نهائي؟')) return;
+  await sb.from('profiles').delete().eq('id', userId);
+  loadUsers(); loadOverview(); loadStats();
+}
+
+/* ---------- المنشورات ---------- */
+async function loadPosts(){
+  const { data: posts } = await sb.from('posts').select('*, profiles(username)').order('created_at', { ascending: false });
+  document.getElementById('postsList').innerHTML = (posts||[]).map(p => `
+    <li>
+      <div class="li-info"><div class="main">${escapeHtml(p.profiles?.username || 'مستخدم محذوف')}</div><div class="sub">${escapeHtml(p.content || '(صورة بدون نص)')}</div></div>
+      <button class="delBtn" onclick="deletePost('${p.id}')">حذف</button>
+    </li>
+  `).join('') || '<div class="emptyMsg">مفيش منشورات لسه</div>';
+}
+async function deletePost(postId){
+  if(!confirm('متأكد إنك عايز تحذف المنشور ده؟')) return;
+  await sb.from('posts').delete().eq('id', postId);
+  loadPosts(); loadOverview(); loadStats();
+}
+
+/* ---------- الملخصات ---------- */
+async function loadLibrary(){
+  const { data } = await sb.from('library_posts').select('*, profiles(username)').order('created_at', { ascending: false });
+  document.getElementById('libraryList').innerHTML = (data||[]).map(item => `
+    <li>
+      <div class="li-info"><div class="main">${escapeHtml(item.title)}</div><div class="sub">${escapeHtml(item.profiles?.username || 'مستخدم محذوف')} — ${escapeHtml(item.subject || '')}</div></div>
+      <button class="delBtn" onclick="deleteLibraryItem('${item.id}')">حذف</button>
+    </li>
+  `).join('') || '<div class="emptyMsg">مفيش ملخصات لسه</div>';
+}
+async function deleteLibraryItem(id){
+  if(!confirm('متأكد إنك عايز تحذف الملخص ده؟')) return;
+  await sb.from('library_posts').delete().eq('id', id);
+  loadLibrary(); loadStats();
+}
+
+/* ---------- الريلز ---------- */
+async function loadReels(){
+  const { data } = await sb.from('reels').select('*, profiles(username)').order('created_at', { ascending: false });
+  document.getElementById('reelsList').innerHTML = (data||[]).map(r => `
+    <li>
+      <div class="li-info"><div class="main">${escapeHtml(r.profiles?.username || 'مستخدم محذوف')}</div><div class="sub">${escapeHtml(r.caption || '(بدون وصف)')}</div></div>
+      <button class="delBtn" onclick="deleteReel('${r.id}')">حذف</button>
+    </li>
+  `).join('') || '<div class="emptyMsg">مفيش ريلز لسه</div>';
+}
+async function deleteReel(id){
+  if(!confirm('متأكد إنك عايز تحذف الريل ده؟')) return;
+  await sb.from('reels').delete().eq('id', id);
+  loadReels(); loadStats();
+}
+
+/* ---------- الأسئلة ---------- */
+async function loadQuestions(){
+  const { data } = await sb.from('qa_questions').select('*, profiles(username)').order('created_at', { ascending: false });
+  document.getElementById('questionsList').innerHTML = (data||[]).map(q => `
+    <li>
+      <div class="li-info"><div class="main">${escapeHtml(q.title)}</div><div class="sub">${escapeHtml(q.profiles?.username || 'مستخدم محذوف')} — ${escapeHtml(q.subject || '')}</div></div>
+      <button class="delBtn" onclick="deleteQuestion('${q.id}')">حذف</button>
+    </li>
+  `).join('') || '<div class="emptyMsg">مفيش أسئلة لسه</div>';
+}
+async function deleteQuestion(id){
+  if(!confirm('متأكد إنك عايز تحذف السؤال ده؟')) return;
+  await sb.from('qa_questions').delete().eq('id', id);
+  loadQuestions(); loadStats();
+}
+
+/* ---------- جلسة محفوظة ---------- */
+(async function init(){
+  const { data: { session } } = await sb.auth.getSession();
+  if(session && session.user.email === ADMIN_EMAIL){
+    showDashboard();
+  } else if(session){
+    await sb.auth.signOut();
+  }
+})();
+</script>
+</body>
+</html>

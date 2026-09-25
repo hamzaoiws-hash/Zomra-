@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://zomra.codematrix1.workers.dev/sitemap.xml

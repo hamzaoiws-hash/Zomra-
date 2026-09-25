@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" id="htmlRoot">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zomra</title>
+<meta property="og:title" content="Zomra">
+<meta property="og:image" content="icons/icon-512.png">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#5865f2">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Zomra">
+<link rel="stylesheet" href="style.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+<div id="authScreen">
+  <h1>Zomra</h1>
+  <p class="tag" data-i18n="tagline">المكان بتاع الطلاب</p>
+  <div id="authError"></div>
+  <div id="loginForm">
+    <div class="field"><label data-i18n="email">الإيميل</label><input type="email" id="loginEmail"></div>
+    <div class="field"><label data-i18n="password">الباسورد</label><input type="password" id="loginPass"></div>
+    <button class="btn" onclick="login()" data-i18n="login">دخول</button>
+    <div class="switchAuth"><span data-i18n="noAccount">مفيش حساب؟</span> <a onclick="showSignup()" data-i18n="createOne">اعمل واحد</a></div>
+  </div>
+  <div id="signupForm" class="hidden">
+    <div class="field"><label data-i18n="username">اسم المستخدم</label><input type="text" id="suUsername"></div>
+    <div class="field"><label data-i18n="email">الإيميل</label><input type="email" id="suEmail"></div>
+    <div class="field"><label data-i18n="password">الباسورد</label><input type="password" id="suPass"></div>
+    <button class="btn" onclick="signup()" data-i18n="createAccount">إنشاء حساب</button>
+    <div class="switchAuth"><span data-i18n="haveAccount">عندك حساب؟</span> <a onclick="showLogin()" data-i18n="login">دخول</a></div>
+  </div>
+</div>
+
+<div id="app" class="hidden">
+  <header class="top">
+    <h1>Zomra</h1>
+    <div class="right">
+      <button class="bellBtn" onclick="toggleLang()" id="langBtn">EN</button>
+      <button class="bellBtn" onclick="openSettings()">⚙️</button>
+      <button class="bellBtn" onclick="toggleNotifPanel()">🔔<span class="bellDot" id="bellDot"></span></button>
+      <span class="who" data-i18n="hi">أهلاً <span id="meUsername"></span></span>
+      <button class="logout" onclick="logout()" data-i18n="logout">خروج</button>
+    </div>
+  </header>
+
+  <div class="notifPanel hidden" id="notifPanel"></div>
+
+  <nav class="tabs">
+    <button class="active" data-tab="feed" onclick="switchTab('feed')" data-i18n="feed">الفيد</button>
+    <button data-tab="library" onclick="switchTab('library')" data-i18n="library">المكتبة</button>
+    <button data-tab="groups" onclick="switchTab('groups')" data-i18n="groups">مجموعات</button>
+    <button data-tab="projects" onclick="switchTab('projects')" data-i18n="projects">مشاريع</button>
+    <button data-tab="chat" onclick="switchTab('chat')" data-i18n="chat">الشات</button>
+    <button data-tab="qa" onclick="switchTab('qa')" data-i18n="qa">أسئلة</button>
+    <button data-tab="profile" onclick="switchTab('profile')" data-i18n="profile">بروفايلي</button>
+  </nav>
+
+  <section class="tabPanel" id="tab-feed">
+    <div class="searchBox">
+      <input type="text" id="searchInput" data-i18n-ph="searchPlaceholder" placeholder="🔍 دور على مستخدم أو منشور..." oninput="handleSearch()">
+      <div class="searchResults" id="searchResults"></div>
+    </div>
+    <div class="storiesBar" id="storiesBar"></div>
+    <input type="file" id="storyFile" accept="image/*" style="display:none" onchange="uploadStory(event)">
+    <div class="filterRow">
+      <button class="active" id="filterAll" onclick="setFeedFilter('all')" data-i18n="all">الكل</button>
+      <button id="filterFollowing" onclick="setFeedFilter('following')" data-i18n="following">اللي بتتابعهم</button>
+    </div>
+    <div class="newPost">
+      <textarea id="postContent" data-i18n-ph="whatsNew" placeholder="عندك إيه جديد؟"></textarea>
+      <img id="postImgPreview" class="imgPreview">
+      <div class="fileRow">
+        <label class="pick" for="postImgFile" data-i18n="addPhoto">📷 إضافة صورة</label>
+        <input type="file" id="postImgFile" accept="image/*" onchange="previewPostImg(event)">
+      </div>
+      <div class="row"><button class="btn" id="postBtn" onclick="createPost()" data-i18n="post">نشر</button></div>
+    </div>
+    <div id="feedList"></div>
+    <button class="loadMoreBtn hidden" id="loadMoreBtn" onclick="loadMoreFeed()" data-i18n="loadMore">حمّل المزيد</button>
+  </section>
+
+  <section class="tabPanel hidden" id="tab-library">
+    <div class="subTabs">
+      <button class="active" id="subTabSummaries" onclick="switchLibSubTab('summaries')" data-i18n="summaries">📄 ملخصات</button>
+      <button id="subTabReels" onclick="switchLibSubTab('reels')" data-i18n="reels">🎬 ريلز</button>
+    </div>
+    <div id="librarySummaries">
+      <div class="libFilters">
+        <select id="libFilterSubject" onchange="loadLibrary()"><option value="" data-i18n="allSubjects">كل المواد</option></select>
+        <select id="libFilterSort" onchange="loadLibrary()">
+          <option value="new" data-i18n="newest">الأحدث</option>
+          <option value="top" data-i18n="mostLiked">الأكثر إعجابًا</option>
+        </select>
+      </div>
+      <div class="newPost">
+        <input type="text" id="libTitle" data-i18n-ph="summaryTitle" placeholder="عنوان الملخص">
+        <input type="text" id="libSubject" data-i18n-ph="subjectExample" placeholder="المادة (مثلاً: رياضيات)">
+        <select id="libYearLevel">
+          <option value="" data-i18n="gradeOptional">السنة الدراسية (اختياري)</option>
+          <option data-i18n="elementary">ابتدائي</option><option data-i18n="middle">إعدادي</option><option data-i18n="high">ثانوي</option><option data-i18n="university">جامعة</option>
+        </select>
+        <div class="fileRow">
+          <label class="pick" for="libFile" data-i18n="chooseFile">📎 اختيار ملف (PDF أو صورة)</label>
+          <input type="file" id="libFile" accept=".pdf,image/*" onchange="handleLibFileChange(event)">
+          <span id="libFileName" class="muted"></span>
+        </div>
+        <div class="row"><button class="btn" id="libBtn" onclick="uploadLibraryItem()" data-i18n="uploadSummary">رفع الملخص</button></div>
+      </div>
+      <div id="libraryList"></div>
+    </div>
+    <div id="libraryReels" class="hidden">
+      <div class="newPost">
+        <p class="muted" style="margin-bottom:10px" data-i18n="uploadReelHint">ارفع ريل جديد من هنا:</p>
+        <textarea id="reelCaption" data-i18n-ph="reelCaption" placeholder="اكتب وصف للريل..."></textarea>
+        <div class="fileRow">
+          <label class="pick" for="reelFile" data-i18n="chooseVideo">🎥 اختيار فيديو</label>
+          <input type="file" id="reelFile" accept="video/*" onchange="handleReelFileChange(event)">
+          <span id="reelFileName" class="muted"></span>
+        </div>
+        <div class="row"><button class="btn" id="reelBtn" onclick="uploadReel()" data-i18n="uploadReel">رفع الريل</button></div>
+      </div>
+      <button class="btn openReelsBtn" onclick="openReelsView()" data-i18n="openReels">▶️ فتح الريلز</button>
+    </div>
+  </section>
+
+  <section class="tabPanel hidden" id="tab-groups">
+    <div id="groupsListView">
+      <div class="newPost">
+        <input type="text" id="groupName" data-i18n-ph="groupName" placeholder="اسم المجموعة">
+        <input type="text" id="groupSubject" data-i18n-ph="subject" placeholder="المادة">
+        <div class="row"><button class="btn" onclick="createGroup()" data-i18n="createGroup">إنشاء مجموعة</button></div>
+      </div>
+      <div id="groupsList"></div>
+    </div>
+    <div id="groupChatView" class="hidden">
+      <button class="editBioBtn" onclick="closeGroupChat()" data-i18n="backToGroups">⬅ رجوع للمجموعات</button>
+      <h2 style="margin:14px 0" id="groupChatTitle"></h2>
+      <div id="groupChatBox" class="chatBoxDynamic"></div>
+      <form class="chatForm" onsubmit="sendGroupMessage(event)">
+        <input type="text" id="groupChatInput" data-i18n-ph="messageGroup" placeholder="اكتب رسالة للمجموعة...">
+        <button class="btn" type="submit" data-i18n="send">إرسال</button>
+      </form>
+    </div>
+  </section>
+
+  <section class="tabPanel hidden" id="tab-projects">
+    <div id="projectsListView">
+      <div class="newPost">
+        <input type="text" id="projectTitle" data-i18n-ph="projectName" placeholder="اسم المشروع">
+        <input type="text" id="projectSubject" data-i18n-ph="subject" placeholder="المادة">
+        <div class="row"><button class="btn" onclick="createProject()" data-i18n="createProject">إنشاء مشروع</button></div>
+      </div>
+      <div id="projectsList"></div>
+    </div>
+    <div id="projectDetailView" class="hidden">
+      <button class="editBioBtn" onclick="closeProjectDetail()" data-i18n="backToProjects">⬅ رجوع للمشاريع</button>
+      <h2 style="margin:14px 0" id="projectDetailTitle"></h2>
+      <div class="progressBarOuter"><div class="progressBarInner" id="projectProgressBar"></div></div>
+      <div id="projectProgressText" class="muted" style="font-size:13px;margin-bottom:14px"></div>
+      <div class="newPost">
+        <input type="text" id="taskTitle" data-i18n-ph="newTask" placeholder="مهمة جديدة">
+        <div class="row"><button class="btn" onclick="addTask()" data-i18n="addTask">إضافة مهمة</button></div>
+      </div>
+      <div id="tasksList"></div>
+    </div>
+  </section>
+
+  <section class="tabPanel hidden" id="tab-chat">
+    <div class="chatUsers" id="chatUsersList"></div>
+    <div id="chatBox"><div class="empty" data-i18n="pickSomeone">اختار حد تتكلم معاه</div></div>
+    <form class="chatForm" onsubmit="sendMessage(event)">
+      <input type="text" id="chatInput" data-i18n-ph="typeMessage" placeholder="اكتب رسالة..." disabled>
+      <button class="btn" type="submit" id="chatSendBtn" disabled data-i18n="send">إرسال</button>
+    </form>
+  </section>
+
+  <section class="tabPanel hidden" id="tab-qa">
+    <div id="qaListView">
+      <div class="newPost" id="challengeCard">
+        <div class="sectionTitle" style="margin-top:0" data-i18n="weeklyChallenge">🏆 التحدي الأسبوعي</div>
+        <div id="challengeContent"></div>
+        <input type="text" id="challengeTitle" data-i18n-ph="newChallengeTitle" placeholder="عنوان تحدي جديد" style="margin-top:10px">
+        <input type="text" id="challengeDesc" data-i18n-ph="challengeDesc" placeholder="وصف التحدي">
+        <div class="row"><button class="btn" onclick="createChallenge()" data-i18n="postChallenge">نشر تحدي</button></div>
+      </div>
+      <div class="newPost">
+        <input type="text" id="qTitle" data-i18n-ph="questionTitle" placeholder="عنوان السؤال">
+        <input type="text" id="qSubject" data-i18n-ph="subjectOptional" placeholder="المادة (اختياري)">
+        <textarea id="qContent" data-i18n-ph="questionDetails" placeholder="تفاصيل السؤال..."></textarea>
+        <div class="row"><button class="btn" onclick="askQuestion()" data-i18n="ask">اسأل</button></div>
+      </div>
+      <div id="questionsList"></div>
+      <div class="sectionTitle" data-i18n="leaderboard">🥇 لوحة المتصدرين</div>
+      <div id="leaderboardList"></div>
+    </div>
+    <div id="qaDetailView" class="hidden">
+      <button class="editBioBtn" onclick="closeQuestionDetail()" data-i18n="backToQuestions">⬅ رجوع للأسئلة</button>
+      <h2 style="margin:14px 0 4px" id="qDetailTitle"></h2>
+      <div id="qDetailSubject" class="accentText"></div>
+      <p id="qDetailContent" style="margin:12px 0;line-height:1.6"></p>
+      <div id="answersList"></div>
+      <div class="newPost" style="margin-top:14px">
+        <textarea id="answerContent" data-i18n-ph="writeAnswer" placeholder="اكتب إجابتك..."></textarea>
+        <div class="row"><button class="btn" onclick="postAnswer()" data-i18n="submitAnswer">إرسال الإجابة</button></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="tabPanel hidden" id="tab-profile">
+    <div class="profileTop">
+      <div class="profileAvatarBig" id="profAvatarBig"></div>
+      <div id="avatarEditRow"><label class="avatarPick" for="avatarFile" data-i18n="changePhoto">تغيير صورة البروفايل</label></div>
+      <input type="file" id="avatarFile" accept="image/*" style="display:none" onchange="uploadAvatar(event)">
+      <h2 id="profUsername" style="margin-top:12px"></h2>
+      <div class="profileStats">
+        <div class="stat"><div class="n" id="statPostsCount">0</div><div class="l" data-i18n="post_">منشور</div></div>
+        <div class="stat"><div class="n" id="statFollowersCount">0</div><div class="l" data-i18n="followers">متابعين</div></div>
+        <div class="stat"><div class="n" id="statFollowingCount">0</div><div class="l" data-i18n="following_">متابَعون</div></div>
+      </div>
+      <div id="examBadgeWrap" class="hidden"></div>
+      <div class="streakBox" id="streakBox"></div>
+      <div class="badgesRow" id="badgesRow"></div>
+      <p class="bioText" id="profBio" data-i18n="noBio">لسه معملتش بايو</p>
+      <div id="editBioBtn" class="editBioBtn" onclick="editBio()" data-i18n="editBio">تعديل البايو</div>
+      <div id="profileFollowWrap" class="hidden" style="margin-top:8px"></div>
+      <div id="profileBlockWrap" class="hidden" style="margin-top:6px"></div>
+    </div>
+    <div id="profileTabsRow" class="profileTabsRow">
+      <button class="active" id="profTabPosts" onclick="switchProfileSubTab('posts')" data-i18n="myPosts">منشوراتي</button>
+      <button id="profTabSaved" onclick="switchProfileSubTab('saved')" data-i18n="saved">المحفوظات</button>
+    </div>
+    <div class="postsGrid" id="profPostsGrid"></div>
+    <div id="savedPostsList" class="hidden"></div>
+    <div id="discoverSection">
+      <div class="sectionTitle" id="discoverTitle" data-i18n="discoverStudents">طلاب تقدر تتابعهم</div>
+      <div id="discoverUsersList"></div>
+    </div>
+  </section>
+</div>
+
+<div id="reelsView">
+  <button class="reelCloseBtn" onclick="closeReelsView()">✕</button>
+  <div id="reelsList"></div>
+</div>
+
+<div id="storyViewer">
+  <button class="closeStory" onclick="closeStoryViewer()">✕</button>
+  <div class="storyUser" id="storyViewerUser"></div>
+  <img id="storyViewerImg" class="storyContent hidden">
+  <div id="storyViewerText" class="storyText hidden"></div>
+</div>
+
+<div id="settingsPanel">
+  <div class="settingsBox">
+    <h2 data-i18n="accountSettings">إعدادات الحساب</h2>
+    <div id="settingsError"></div>
+    <div id="settingsSuccess"></div>
+
+    <label class="settingsLabel" data-i18n="appTheme">لون التطبيق</label>
+    <div class="colorGrid" id="colorGrid"></div>
+    <div class="customColorRow">
+      <input type="color" id="customColorPicker" value="#5865f2">
+      <button class="btn secondary" style="width:auto" onclick="applyCustomColor()" data-i18n="applyColor">تطبيق</button>
+    </div>
+
+    <label class="settingsLabel" data-i18n="fontSize">حجم الخط</label>
+    <div class="themeRow">
+      <button id="fontSmallBtn" onclick="setFontSize('small')" data-i18n="small">صغير</button>
+      <button id="fontMediumBtn" onclick="setFontSize('medium')" data-i18n="medium">متوسط</button>
+      <button id="fontLargeBtn" onclick="setFontSize('large')" data-i18n="large">كبير</button>
+    </div>
+
+    <label class="settingsLabel" data-i18n="profilePrivacy">خصوصية البروفايل</label>
+    <select id="privacySelect" class="settingsSelect" onchange="updatePrivacy()">
+      <option value="public" data-i18n="visibleAll">يشوفه أي حد</option>
+      <option value="followers" data-i18n="visibleFollowers">المتابعين بس</option>
+      <option value="private" data-i18n="visibleNone">محدش (خاص)</option>
+    </select>
+
+    <label class="settingsLabel" data-i18n="notifications">الإشعارات</label>
+    <div class="toggleRow"><span data-i18n="notifLikes">لايكات على منشوراتي</span><input type="checkbox" id="notifLikesChk" onchange="updateNotifPrefs()"></div>
+    <div class="toggleRow"><span data-i18n="notifComments">تعليقات على منشوراتي</span><input type="checkbox" id="notifCommentsChk" onchange="updateNotifPrefs()"></div>
+    <div class="toggleRow"><span data-i18n="notifFollows">متابعين جدد</span><input type="checkbox" id="notifFollowsChk" onchange="updateNotifPrefs()"></div>
+
+    <label class="settingsLabel" data-i18n="favSubjects">موادك المفضلة (افصل بفاصلة)</label>
+    <input type="text" id="favSubjectsInput" data-i18n-ph="favSubjectsExample" placeholder="مثلاً: رياضيات، فيزياء" class="settingsInput">
+    <button class="btn" onclick="saveFavoriteSubjects()" data-i18n="saveSubjects">حفظ المواد</button>
+
+    <label class="settingsLabel" style="margin-top:18px" data-i18n="examFreeze">🎓 تجميد الحساب وقت الامتحانات</label>
+    <p class="muted" style="margin-bottom:8px" data-i18n="examFreezeDesc">هيتم تجميد الإشعارات والرسائل الواردة لحد التاريخ ده، وهيرجع طبيعي أوتوماتيك.</p>
+    <div id="examFreezeStatus" style="margin-bottom:8px"></div>
+    <input type="date" id="examFreezeDate" class="settingsInput">
+    <button class="btn dangerBtn" style="margin-top:8px" onclick="freezeForExams()" data-i18n="freezeUntil">تجميد لحد التاريخ ده</button>
+    <button class="btn secondary" id="unfreezeBtn" style="margin-top:8px" onclick="unfreezeAccount()" data-i18n="unfreezeNow">إلغاء التجميد دلوقتي</button>
+
+    <label class="settingsLabel" style="margin-top:18px" data-i18n="newUsername">اسم مستخدم جديد</label>
+    <input type="text" id="newUsername" data-i18n-ph="enterNewUsername" placeholder="اكتب اسم مستخدم جديد" class="settingsInput">
+    <button class="btn" onclick="changeUsername()" data-i18n="updateUsername">تحديث اسم المستخدم</button>
+
+    <label class="settingsLabel" style="margin-top:18px" data-i18n="newPassword">باسورد جديد</label>
+    <input type="password" id="newPassword" data-i18n-ph="min6chars" placeholder="6 حروف على الأقل" class="settingsInput">
+    <button class="btn" onclick="changePassword()" data-i18n="updatePassword">تحديث الباسورد</button>
+
+    <label class="settingsLabel" style="margin-top:18px" data-i18n="blockedUsers">المستخدمين المحظورين</label>
+    <div id="blockedUsersList"></div>
+
+    <button class="btn secondary" style="margin-top:18px" onclick="exportMyData()" data-i18n="exportData">📦 تصدير بياناتي (JSON)</button>
+    <button class="btn dangerBtn" style="margin-top:10px" onclick="disableAccount()" data-i18n="deactivateAccount">⏸ تعطيل الحساب مؤقتًا</button>
+    <button class="btn dangerBtn" style="margin-top:10px" onclick="deleteAccountData()" data-i18n="deleteData">🗑 حذف بياناتي نهائيًا</button>
+    <button class="btn secondary" style="margin-top:14px" onclick="closeSettings()" data-i18n="close">إغلاق</button>
+  </div>
+</div>
+
+<script src="script.js"></script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(err => console.log('SW error:', err));
+  });
+}
+</script>
+</body>
+</html>
